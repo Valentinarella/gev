@@ -158,7 +158,7 @@ with st.sidebar:
 
         threshold = st.slider(
             cfg["filter_label"],
-            min_value=0, max_value=100, value=5,
+            min_value=1, max_value=100, value=5,
             help="Set the minimum risk score to display on the map."
         )
 
@@ -170,7 +170,7 @@ with st.sidebar:
 
         top_n = st.slider(
             "Number of Counties to Show",
-            min_value=5, max_value=50, value=10,
+            min_value=5, max_value=955, value=10,
             help="Number of top counties to display in the table below."
         )
     else:
@@ -187,7 +187,7 @@ with st.sidebar:
 
         top_n = st.slider(
             "Number of Counties to Show",
-            min_value=5, max_value=50, value=10,
+            min_value=5, max_value=955, value=10,
             help="Number of top counties to display in the table below."
         )
         threshold = 0
