@@ -35,7 +35,7 @@ health_url = "https://undivideprojectdata.blob.core.windows.net/gev/health.csv?s
 def load_hazard(url, risk_col):
     try:
         df = pd.read_csv(url, usecols=["CF", "SF", "Latitude", "Longitude", "MEAN_low_income_percentage", "midcent_median_10yr"])
-        df = df.rename(columns={"CF": "County", "SF": "State", "Latitude": "Lat", "Longitude": "Lon",
+        df = df.rename(columns={"CF": "County", "SF": "State", "Latitude": "Lat", "Longitude": "Lon", 
                                 "MEAN_low_income_percentage": "MEAN_low_income_percentage", "midcent_median_10yr": risk_col})
         df["County"] = df["County"].str.title()
         df["State"] = df["State"].str.title()
@@ -135,39 +135,30 @@ else:
 states = ["All"] + sorted(health_df["State"].unique().tolist())
 
 # --- Title ---
-st.title("GEV Analysis Dashboard")
+st.markdown("<h1 style='text-align: center; font-family: Arial;'>GEV Analysis Dashboard</h1>", unsafe_allow_html=True)
 
 # --- Introduction ---
-with st.expander("Introduction", expanded=False):
-    st.write(
-        "The 'Ten State Project' is a research initiative focused on evaluating climate risk vulnerabilities "
-        "across ten U.S. states, emphasizing the interplay between environmental hazards, socioeconomic challenges, "
-        "and health outcomes. By integrating advanced climate modeling with socioeconomic and health data, the project "
-        "identifies regions most susceptible to extreme weather events like droughts, wildfires, and windstorms, "
-        "particularly in low-income and marginalized communities. It aims to raise awareness among local populations "
-        "about the compounded risks they face, such as increased asthma prevalence due to environmental stressors, "
-        "and to provide data-driven insights for building resilience. The project uses tools like the Generalized "
-        "Extreme Value (GEV) model to forecast future climate risks and overlays this with health and economic "
-        "indicators to highlight disparities, enabling targeted interventions for at-risk areas."
-    )
-    st.write(
-        "Our project, the 'GEV Analysis Dashboard,' builds on the 'Ten State Project' by offering an interactive "
-        "tool to explore these vulnerabilities at the county level across the U.S. We utilize datasets from AT&T "
-        "Climate Resiliency, covering drought, wildfire, and wind risks, alongside U.S. Census Bureau data on "
-        "socioeconomic factors and health metrics like asthma and diabetes rates. The dashboard allows users to "
-        "filter by state, hazard type, and health indicators, providing a granular view of how climate risks "
-        "intersect with economic and health challenges. By making this data accessible, we aim to empower community "
-        "leaders, policymakers, and residents to address climate risks equitably, bridging the gap between complex "
-        "data and actionable insights for vulnerable populations."
-    )
+st.markdown("<h3 style='font-family: Arial;'>Introduction</h3>", unsafe_allow_html=True)
+st.markdown(
+    "<p style='font-family: Arial; font-size: 14px;'>"
+    "The 'Ten State Project' is a research initiative focused on evaluating climate risk vulnerabilities across ten U.S. states, emphasizing the interplay between environmental hazards, socioeconomic challenges, and health outcomes. By integrating advanced climate modeling with socioeconomic and health data, the project identifies regions most susceptible to extreme weather events like droughts, wildfires, and windstorms, particularly in low-income and marginalized communities. It aims to raise awareness among local populations about the compounded risks they face, such as increased asthma prevalence due to environmental stressors, and to provide data-driven insights for building resilience. The project uses tools like the Generalized Extreme Value (GEV) model to forecast future climate risks and overlays this with health and economic indicators to highlight disparities, enabling targeted interventions for at-risk areas."
+    "</p>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    "<p style='font-family: Arial; font-size: 14px;'>"
+    "Our project, the 'GEV Analysis Dashboard,' builds on the 'Ten State Project' by offering an interactive tool to explore these vulnerabilities at the county level across the U.S. We utilize datasets from AT&T Climate Resiliency, covering drought, wildfire, and wind risks, alongside U.S. Census Bureau data on socioeconomic factors and health metrics like asthma and diabetes rates. The dashboard allows users to filter by state, hazard type, and health indicators, providing a granular view of how climate risks intersect with economic and health challenges. By making this data accessible, we aim to empower community leaders, policymakers, and residents to address climate risks equitably, bridging the gap between complex data and actionable insights for vulnerable populations."
+    "</p>",
+    unsafe_allow_html=True
+)
+st.markdown("<hr>", unsafe_allow_html=True)
 
-# --- Sidebar ---
+# --- Sidebar (mirrors original Filters + Navigation) ---
 with st.sidebar:
-    st.header("Filters")
+    st.markdown("<h3 style='font-family: Arial;'>Filters</h3>", unsafe_allow_html=True)
     state = st.selectbox("Select State", states, index=0)
-
-    st.header("Navigation")
-    view = st.radio("View", ["Hazard Map", "Community Indicators", "Health & Income"])
+    st.markdown("<h3 style='font-family: Arial; margin-top: 20px;'>Navigation</h3>", unsafe_allow_html=True)
+    view = st.selectbox("Select View", ["Hazard Map", "Community Indicators", "Health & Income"])
 
 # --- Hazard constants ---
 colors = {"Wind Risk": "#2D584A", "Drought Risk": "#759B90", "Wildfire Risk": "#000000"}
@@ -178,18 +169,26 @@ hazard_raw_map = {"Wind Risk": "Wind_Risk", "Drought Risk": "Drought_Risk", "Wil
 # =====================
 if view == "Hazard Map":
     hazards = st.multiselect(
-        "Select Hazard Types",
+        "Hazards",
         ["Wind Risk", "Drought Risk", "Wildfire Risk"],
         default=["Wind Risk"]
     )
-    threshold = st.slider("Risk Threshold", 0.0, 50.0, 5.0, 1.0)
-
-    st.subheader(f"Hazard Exposure Across Counties ({state if state != 'All' else 'All States'})")
-    st.caption("Note: Risk reflects 10-year median projections. Marker size shows low-income %, color shows hazard type. Adjust threshold or select multiple hazards to compare.")
+    threshold = st.slider(
+        "Risk Threshold",
+        min_value=0.0, max_value=50.0, value=5.0, step=1.0
+    )
 
     wind_df_filtered = filter_by_state(wind_df, state)
     drought_df_filtered = filter_by_state(drought_df, state)
     wildfire_df_filtered = filter_by_state(wildfire_df, state)
+
+    st.markdown(f"<h3 style='font-family: Arial;'>Hazard Exposure Across Counties ({state if state != 'All' else 'All States'})</h3>", unsafe_allow_html=True)
+    st.markdown(
+        "<p style='font-family: Arial; font-style: italic;'>"
+        "Note: Risk reflects 10-year median projections. Marker size shows low-income %, color shows hazard type. Adjust threshold or select multiple hazards to compare."
+        "</p>",
+        unsafe_allow_html=True
+    )
 
     fig = go.Figure()
     for h in hazards:
@@ -221,8 +220,7 @@ if view == "Hazard Map":
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Top 10 charts
-    st.subheader(f"Top 10 Counties by Risk ({state if state != 'All' else 'All States'})")
+    st.markdown(f"<h3 style='font-family: Arial;'>Top 10 Counties by Risk ({state if state != 'All' else 'All States'})</h3>", unsafe_allow_html=True)
     for h in hazards:
         risk_col = hazard_raw_map[h]
         df = wind_df_filtered if h == "Wind Risk" else drought_df_filtered if h == "Drought Risk" else wildfire_df_filtered
@@ -234,7 +232,7 @@ if view == "Hazard Map":
             top_10_clean = top_10.dropna(subset=[risk_col, "MEAN_low_income_percentage"])
 
             if top_10_clean.empty:
-                st.warning(f"No valid data to plot for {metric_name_map[risk_col]} after cleaning.")
+                st.markdown(f"<p style='font-family: Arial; color: orange;'>No valid data to plot for {metric_name_map[risk_col]} after cleaning.</p>", unsafe_allow_html=True)
             else:
                 hist_fig = px.histogram(
                     top_10_clean,
@@ -275,7 +273,7 @@ if view == "Hazard Map":
                 )
                 st.plotly_chart(bar_fig, use_container_width=True)
         else:
-            st.warning(f"No data to display for {metric_name_map[hazard_raw_map[h]]} in {state if state != 'All' else 'the selected states'}.")
+            st.markdown(f"<p style='font-family: Arial; color: orange;'>No data to display for {metric_name_map[hazard_raw_map[h]]} in {state if state != 'All' else 'the selected states'}.</p>", unsafe_allow_html=True)
 
 # =====================
 # COMMUNITY INDICATORS
@@ -292,11 +290,19 @@ elif view == "Community Indicators":
         format_func=lambda m: metric_name_map[m],
         index=1
     )
-    top_n = st.slider("Top N Counties", 5, 50, 10, 5)
+    top_n = st.slider(
+        "Top N Counties",
+        min_value=5, max_value=50, value=10, step=5
+    )
 
     census_df_filtered = filter_by_state(census_df, state)
-    st.subheader(f"Community Disadvantage & Demographics ({state if state != 'All' else 'All States'})")
-    st.caption("Note: Explore metrics like energy burden or air quality. Higher values indicate greater vulnerability. Adjust 'Top N' to see more counties.")
+    st.markdown(f"<h3 style='font-family: Arial;'>Community Disadvantage & Demographics ({state if state != 'All' else 'All States'})</h3>", unsafe_allow_html=True)
+    st.markdown(
+        "<p style='font-family: Arial; font-style: italic;'>"
+        "Note: Explore metrics like energy burden or air quality. Higher values indicate greater vulnerability. Adjust 'Top N' to see more counties."
+        "</p>",
+        unsafe_allow_html=True
+    )
 
     subset = census_df_filtered[census_df_filtered[raw_metric].notna()].copy()
     if raw_metric == "Identified as disadvantaged":
@@ -305,7 +311,7 @@ elif view == "Community Indicators":
     top = subset.sort_values(by=raw_metric, ascending=False).head(top_n)
 
     if top.empty:
-        st.warning(f"No data available for {metric_name_map[raw_metric]} in {state if state != 'All' else 'the selected states'}.")
+        st.markdown(f"<p style='font-family: Arial; color: orange;'>No data available for {metric_name_map[raw_metric]} in {state if state != 'All' else 'the selected states'}.</p>", unsafe_allow_html=True)
     else:
         if raw_metric != "Identified as disadvantaged":
             top = top.copy()
@@ -316,7 +322,20 @@ elif view == "Community Indicators":
             display_cols.append("Total population")
         display_df = top[display_cols].copy()
         display_df.columns = [col if col not in metric_name_map else metric_name_map[col] for col in display_df.columns]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+        # Render as HTML table to match original styling
+        table_html = "<table style='border-collapse: collapse; width: 100%;'>"
+        table_html += "<thead><tr>"
+        for col in display_df.columns:
+            table_html += f"<th style='font-family: Arial; border: 1px solid black; padding: 5px;'>{col}</th>"
+        table_html += "</tr></thead><tbody>"
+        for i in range(len(display_df)):
+            table_html += "<tr>"
+            for col in display_df.columns:
+                table_html += f"<td style='font-family: Arial; border: 1px solid black; padding: 5px;'>{display_df.iloc[i][col]}</td>"
+            table_html += "</tr>"
+        table_html += "</tbody></table>"
+        st.markdown(table_html, unsafe_allow_html=True)
 
         if raw_metric != "Identified as disadvantaged":
             fig = px.bar(
@@ -333,19 +352,13 @@ elif view == "Community Indicators":
 # HEALTH & INCOME
 # =====================
 elif view == "Health & Income":
-    health_metrics = ["Asthma_Rate____", "Diabetes_Rate____", "Heart_Disease_Rate____", "Life_expectancy__years_"]
-    raw_metric = st.selectbox(
-        "Select Health Metric",
-        health_metrics,
-        format_func=lambda m: metric_name_map[m]
-    )
-
     health_df_filtered = filter_by_state(health_df, state)
 
     if health_df_filtered.empty:
-        st.warning(f"No health data available for {state if state != 'All' else 'the selected states'}.")
+        hist = go.Figure()
+        st.plotly_chart(hist, use_container_width=True)
+        st.markdown(f"<p style='font-family: Arial; color: orange;'>No health data available for {state if state != 'All' else 'the selected states'}.</p>", unsafe_allow_html=True)
     else:
-        # Income histogram
         hist = px.histogram(
             health_df_filtered,
             x="MEAN_low_income_percentage",
@@ -358,16 +371,22 @@ elif view == "Health & Income":
         hist.update_xaxes(title_text=metric_name_map["MEAN_low_income_percentage"])
         st.plotly_chart(hist, use_container_width=True)
 
-        # Top 10 by health metric
+        health_metrics = ["Asthma_Rate____", "Diabetes_Rate____", "Heart_Disease_Rate____", "Life_expectancy__years_"]
+        raw_metric = st.selectbox(
+            "Select Health Metric",
+            health_metrics,
+            format_func=lambda m: metric_name_map[m]
+        )
+
         health_df_filtered = health_df_filtered.copy()
         health_df_filtered[raw_metric] = pd.to_numeric(health_df_filtered[raw_metric], errors='coerce')
         top = health_df_filtered.sort_values(by=raw_metric, ascending=False).head(10)
         top = top.dropna(subset=[raw_metric])
 
-        st.subheader(f"Top 10 Counties by {metric_name_map[raw_metric]} in {state if state != 'All' else 'All States'}")
+        st.markdown(f"<h3 style='font-family: Arial;'>Top 10 Counties by {metric_name_map[raw_metric]} in {state if state != 'All' else 'All States'}</h3>", unsafe_allow_html=True)
 
         if top.empty:
-            st.warning(f"No data available for {metric_name_map[raw_metric]} in {state if state != 'All' else 'the selected states'}.")
+            st.markdown(f"<p style='font-family: Arial; color: orange;'>No data available for {metric_name_map[raw_metric]} in {state if state != 'All' else 'the selected states'}.</p>", unsafe_allow_html=True)
         else:
             bar = px.bar(
                 top,
@@ -386,10 +405,26 @@ elif view == "Health & Income":
 
             display_df = top[["County", "State", raw_metric, "MEAN_low_income_percentage"]].copy()
             display_df.columns = ["County", "State", metric_name_map[raw_metric], metric_name_map["MEAN_low_income_percentage"]]
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+            table_html = "<table style='border-collapse: collapse; width: 100%;'>"
+            table_html += "<thead><tr>"
+            for col in display_df.columns:
+                table_html += f"<th style='font-family: Arial; border: 1px solid black; padding: 5px;'>{col}</th>"
+            table_html += "</tr></thead><tbody>"
+            for i in range(len(display_df)):
+                table_html += "<tr>"
+                for col in display_df.columns:
+                    table_html += f"<td style='font-family: Arial; border: 1px solid black; padding: 5px;'>{display_df.iloc[i][col]}</td>"
+                table_html += "</tr>"
+            table_html += "</tbody></table>"
+            st.markdown(table_html, unsafe_allow_html=True)
 
 # --- Key Findings ---
-st.divider()
-st.subheader("Key Findings")
-st.markdown(f"**Health and Income Disparities:** {asthma_finding}")
-st.markdown(f"**Wildfire Risk Patterns:** {wildfire_finding}")
+st.markdown("<h3 style='font-family: Arial;'>Key Findings</h3>", unsafe_allow_html=True)
+st.markdown(
+    f"<ul>"
+    f"<li style='font-family: Arial; font-size: 14px;'><b>Health and Income Disparities: </b>{asthma_finding}</li>"
+    f"<li style='font-family: Arial; font-size: 14px;'><b>Wildfire Risk Patterns: </b>{wildfire_finding}</li>"
+    f"</ul>",
+    unsafe_allow_html=True
+)
