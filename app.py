@@ -2,21 +2,16 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
 
-st.set_page_config(page_title="GEV Analysis Dashboard", layout="wide")
+st.set_page_config(page_title="GEV Climate Risk Dashboard", layout="wide")
 
 # --- Metric Name Mapping ---
 metric_name_map = {
-    "Wind_Risk": "Wind Risk Score",
-    "Drought_Risk": "Drought Risk Score",
-    "Wildfire_Risk": "Wildfire Risk Score",
-    "MEAN_low_income_percentage": "Low-Income Population (%)",
-    "Identified as disadvantaged": "Disadvantaged Community",
-    "Energy burden": "Energy Burden (%)",
-    "PM2.5 in the air": "PM2.5 Air Pollution (µg/m³)",
-    "Current asthma among adults aged greater than or equal to 18 years": "Adult Asthma Rate (%)",
-    "Share of properties at risk of fire in 30 years": "Properties at Fire Risk (%)",
-    "Total population": "Total Population",
+    "Wind_Risk": "Wind Risk",
+    "Drought_Risk": "Drought Risk",
+    "Wildfire_Risk": "Wildfire Risk",
+    "MEAN_low_income_percentage": "Low-Income %",
     "Asthma_Rate____": "Asthma Rate (%)",
     "Diabetes_Rate____": "Diabetes Rate (%)",
     "Heart_Disease_Rate____": "Heart Disease Rate (%)",
@@ -30,25 +25,64 @@ wildfire_url = "https://undivideprojectdata.blob.core.windows.net/gev/wildfire.c
 census_url = "https://undivideprojectdata.blob.core.windows.net/gev/1.0-communities.csv?sp=r&st=2025-05-30T23:23:50Z&se=2090-05-31T07:23:50Z&spr=https&sv=2024-11-04&sr=b&sig=qC7ouZhUV%2BOMrZJ4tvHslvQeKUdXdA15arv%2FE2pPxEI%3D"
 health_url = "https://undivideprojectdata.blob.core.windows.net/gev/health.csv?sp=r&st=2025-05-31T00:13:59Z&se=2090-05-31T08:13:59Z&spr=https&sv=2024-11-04&sr=b&sig=8epnZK%2FXbnblTCiYlmtuYHgBy43yxCHTtS7FqLu134k%3D"
 
+# --- View config ---
+view_config = {
+    "Wind Risk": {
+        "emoji": "🌪️",
+        "title": "Wind Risk Explorer",
+        "why_title": "Why Wind Risk Matters",
+        "why_text": "High winds from tornadoes, hurricanes, and storms threaten homes, power, and safety, often hitting low-income communities hardest. Explore where **wind risk** and **economic vulnerability** intersect to uncover critical patterns.",
+        "subtitle": "Visualize the intersection of **wind risk** and **economic vulnerability** across U.S. counties.",
+        "risk_col": "Wind_Risk",
+        "risk_label": "Wind Risk",
+        "filter_label": "Minimum Wind Risk",
+        "map_title": "Wind Risk Across U.S. Counties",
+        "note": "**Note:** Marker size reflects low-income percentage; color intensity shows wind risk (green = low, red = high).",
+        "colorscale": [[0, "green"], [0.5, "yellow"], [1, "red"]],
+    },
+    "Drought Risk": {
+        "emoji": "☀️",
+        "title": "Drought Risk Explorer",
+        "why_title": "Why Drought Risk Matters",
+        "why_text": "Prolonged droughts strain water supplies, agriculture, and livelihoods, disproportionately affecting economically vulnerable communities. Explore where **drought risk** and **economic vulnerability** intersect to uncover critical patterns.",
+        "subtitle": "Visualize the intersection of **drought risk** and **economic vulnerability** across U.S. counties.",
+        "risk_col": "Drought_Risk",
+        "risk_label": "Drought Risk",
+        "filter_label": "Minimum Drought Risk",
+        "map_title": "Drought Risk Across U.S. Counties",
+        "note": "**Note:** Marker size reflects low-income percentage; color intensity shows drought risk (green = low, red = high).",
+        "colorscale": [[0, "green"], [0.5, "yellow"], [1, "red"]],
+    },
+    "Wildfire Risk": {
+        "emoji": "🔥",
+        "title": "Wildfire Risk Explorer",
+        "why_title": "Why Wildfire Risk Matters",
+        "why_text": "Wildfires destroy homes, degrade air quality, and displace families, with low-income communities often bearing the greatest burden. Explore where **wildfire risk** and **economic vulnerability** intersect to uncover critical patterns.",
+        "subtitle": "Visualize the intersection of **wildfire risk** and **economic vulnerability** across U.S. counties.",
+        "risk_col": "Wildfire_Risk",
+        "risk_label": "Wildfire Risk",
+        "filter_label": "Minimum Wildfire Risk",
+        "map_title": "Wildfire Risk Across U.S. Counties",
+        "note": "**Note:** Marker size reflects low-income percentage; color intensity shows wildfire risk (green = low, red = high).",
+        "colorscale": [[0, "green"], [0.5, "yellow"], [1, "red"]],
+    },
+}
 
-# --- Loaders (cached) ---
+# --- Loaders ---
 @st.cache_data(show_spinner=False)
 def load_hazard(url, risk_col):
     try:
         df = pd.read_csv(url, usecols=["CF", "SF", "Latitude", "Longitude", "MEAN_low_income_percentage", "midcent_median_10yr"])
-        df = df.rename(columns={
-            "CF": "County", "SF": "State", "Latitude": "Lat", "Longitude": "Lon",
-            "midcent_median_10yr": risk_col
-        })
+        df = df.rename(columns={"CF": "County", "SF": "State", "Latitude": "Lat", "Longitude": "Lon",
+                                "MEAN_low_income_percentage": "MEAN_low_income_percentage", "midcent_median_10yr": risk_col})
         df["County"] = df["County"].str.title()
         df["State"] = df["State"].str.title()
-        df[risk_col] = pd.to_numeric(df[risk_col], errors="coerce")
-        df["MEAN_low_income_percentage"] = pd.to_numeric(df["MEAN_low_income_percentage"], errors="coerce")
+        df[risk_col] = pd.to_numeric(df[risk_col], errors='coerce')
+        df["MEAN_low_income_percentage"] = pd.to_numeric(df["MEAN_low_income_percentage"], errors='coerce')
         return df.dropna(subset=["Lat", "Lon", risk_col])
     except Exception as e:
         st.error(f"Error loading data from {url}: {e}")
         return pd.DataFrame()
-
 
 @st.cache_data(show_spinner=False)
 def load_census():
@@ -63,7 +97,6 @@ def load_census():
         st.error(f"Error loading census data: {e}")
         return pd.DataFrame()
 
-
 @st.cache_data(show_spinner=False)
 def load_health_data():
     try:
@@ -72,350 +105,303 @@ def load_health_data():
         df = df.rename(columns={"CF": "County", "SF": "State"})
         df["County"] = df["County"].str.title()
         df["State"] = df["State"].str.title()
-        df["MEAN_low_income_percentage"] = pd.to_numeric(df["MEAN_low_income_percentage"], errors="coerce")
-        df["Asthma_Rate____"] = pd.to_numeric(df["Asthma_Rate____"], errors="coerce")
+        df["MEAN_low_income_percentage"] = pd.to_numeric(df["MEAN_low_income_percentage"], errors='coerce')
+        df["Asthma_Rate____"] = pd.to_numeric(df["Asthma_Rate____"], errors='coerce')
         return df.dropna(subset=["MEAN_low_income_percentage"])
     except Exception as e:
         st.error(f"Error loading health data: {e}")
         return pd.DataFrame()
 
-
 def filter_hazard_data(df, risk_col, threshold):
-    filtered = df[df[risk_col] >= threshold].copy()
-    filtered[risk_col] = pd.to_numeric(filtered[risk_col], errors="coerce")
-    return filtered.dropna(subset=[risk_col])
-
+    filtered_df = df[df[risk_col] >= threshold].copy()
+    filtered_df[risk_col] = pd.to_numeric(filtered_df[risk_col], errors='coerce')
+    return filtered_df.dropna(subset=[risk_col])
 
 def filter_by_state(df, state):
     if state == "All":
         return df
     return df[df["State"] == state]
 
-
 # --- Load data ---
-with st.spinner("Loading datasets..."):
+with st.spinner("Loading data..."):
     wind_df = load_hazard(wind_url, "Wind_Risk")
     drought_df = load_hazard(drought_url, "Drought_Risk")
     wildfire_df = load_hazard(wildfire_url, "Wildfire_Risk")
     census_df = load_census()
     health_df = load_health_data()
 
-# --- Compute Key Findings ---
-if not health_df.empty:
-    top_asthma = health_df.sort_values(by="Asthma_Rate____", ascending=False).head(10)
-    if len(top_asthma) >= 2:
-        c1, c2 = top_asthma.iloc[0], top_asthma.iloc[1]
-        asthma_finding = (
-            f"For example, {c1['County']}, {c1['State']} has an asthma rate of {c1['Asthma_Rate____']:.1f}% "
-            f"and a low-income population percentage of {c1['MEAN_low_income_percentage']:.1f}%, "
-            f"while {c2['County']}, {c2['State']} shows an asthma rate of {c2['Asthma_Rate____']:.1f}% "
-            f"with a low-income percentage of {c2['MEAN_low_income_percentage']:.1f}%. "
-            "These counties rank among the top 10 for asthma prevalence, indicating a strong correlation "
-            "between economic disadvantage and respiratory health challenges. Users can filter by state "
-            "and select 'Asthma Rate (%)' to explore these patterns."
-        )
-    else:
-        asthma_finding = "Insufficient data to identify top asthma counties across states."
-else:
-    asthma_finding = "No health data available."
-
-high_wildfire = wildfire_df[wildfire_df["Wildfire_Risk"] >= 50]
-if not high_wildfire.empty:
-    top_wildfire = high_wildfire.sort_values(by="Wildfire_Risk", ascending=False).head(10)
-    if len(top_wildfire) >= 2:
-        c1, c2 = top_wildfire.iloc[0], top_wildfire.iloc[1]
-        max_risk = top_wildfire["Wildfire_Risk"].max()
-        avg_low_income = top_wildfire["MEAN_low_income_percentage"].mean()
-        wildfire_finding = (
-            f"Counties like {c1['County']}, {c1['State']} and {c2['County']}, {c2['State']}, "
-            f"which have low-income populations around {avg_low_income:.1f}%, also face elevated wildfire risks, "
-            f"with scores reaching up to {max_risk:.1f}. This suggests a compounded vulnerability in these areas. "
-            "Users can filter by state, choose 'Wildfire Risk,' and set the risk threshold to 50 to see similar results."
-        )
-    else:
-        wildfire_finding = "Insufficient data to identify high wildfire risk counties."
-else:
-    wildfire_finding = "No wildfire data available with risk >= 50."
+hazard_dfs = {
+    "Wind_Risk": wind_df,
+    "Drought_Risk": drought_df,
+    "Wildfire_Risk": wildfire_df,
+}
 
 # --- State options ---
-states = ["All"] + sorted(health_df["State"].unique().tolist())
-
-# --- Header ---
-st.title("GEV Analysis Dashboard")
-
-# --- Introduction ---
-with st.expander("Introduction", expanded=False):
-    st.write(
-        "The 'Ten State Project' is a research initiative focused on evaluating climate risk vulnerabilities "
-        "across ten U.S. states, emphasizing the interplay between environmental hazards, socioeconomic challenges, "
-        "and health outcomes. By integrating advanced climate modeling with socioeconomic and health data, the project "
-        "identifies regions most susceptible to extreme weather events like droughts, wildfires, and windstorms, "
-        "particularly in low-income and marginalized communities. It aims to raise awareness among local populations "
-        "about the compounded risks they face, such as increased asthma prevalence due to environmental stressors, "
-        "and to provide data-driven insights for building resilience. The project uses tools like the Generalized "
-        "Extreme Value (GEV) model to forecast future climate risks and overlays this with health and economic "
-        "indicators to highlight disparities, enabling targeted interventions for at-risk areas."
-    )
-    st.write(
-        "Our project, the 'GEV Analysis Dashboard,' builds on the 'Ten State Project' by offering an interactive "
-        "tool to explore these vulnerabilities at the county level across the U.S. We utilize datasets from AT&T "
-        "Climate Resiliency, covering drought, wildfire, and wind risks, alongside U.S. Census Bureau data on "
-        "socioeconomic factors and health metrics like asthma and diabetes rates. The dashboard allows users to "
-        "filter by state, hazard type, and health indicators, providing a granular view of how climate risks "
-        "intersect with economic and health challenges. By making this data accessible, we aim to empower community "
-        "leaders, policymakers, and residents to address climate risks equitably, bridging the gap between complex "
-        "data and actionable insights for vulnerable populations."
-    )
+all_states = sorted(health_df["State"].unique().tolist())
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("Filters")
-    state = st.selectbox("State", states, index=0)
-
-    st.header("Navigation")
-    view = st.radio("View", ["Hazard Map", "Community Indicators", "Health & Income"])
-
-# --- Colors ---
-colors = {"Wind Risk": "#2D584A", "Drought Risk": "#759B90", "Wildfire Risk": "#000000"}
-hazard_raw_map = {"Wind Risk": "Wind_Risk", "Drought Risk": "Drought_Risk", "Wildfire Risk": "Wildfire_Risk"}
-
-# =====================================================
-# HAZARD MAP VIEW
-# =====================================================
-if view == "Hazard Map":
-    hazards = st.multiselect(
-        "Select Hazard Types",
-        ["Wind Risk", "Drought Risk", "Wildfire Risk"],
-        default=["Wind Risk"]
-    )
-    threshold = st.slider("Risk Threshold", 0.0, 50.0, 5.0, 1.0)
-
-    st.subheader(f"Hazard Exposure Across Counties ({state if state != 'All' else 'All States'})")
-    st.caption(
-        "Note: Risk reflects 10-year median projections. Marker size shows low-income %, "
-        "color shows hazard type. Adjust threshold or select multiple hazards to compare."
+    st.header("Explore the Data")
+    st.markdown("Choose a view")
+    view = st.radio(
+        "Choose a view",
+        ["Wind Risk", "Drought Risk", "Wildfire Risk", "Health & Income"],
+        label_visibility="collapsed"
     )
 
-    wind_filtered = filter_by_state(wind_df, state)
-    drought_filtered = filter_by_state(drought_df, state)
-    wildfire_filtered = filter_by_state(wildfire_df, state)
+    if view in view_config:
+        cfg = view_config[view]
+        st.markdown(f"### {cfg['risk_label']} Filters")
 
-    fig = go.Figure()
-    for h in hazards:
-        risk_col = hazard_raw_map[h]
-        df = (
-            wind_filtered if h == "Wind Risk"
-            else drought_filtered if h == "Drought Risk"
-            else wildfire_filtered
+        st.markdown("Focus on a State")
+        state = st.selectbox("Focus on a State", ["All"] + all_states, label_visibility="collapsed")
+
+        threshold = st.slider(
+            cfg["filter_label"],
+            min_value=0, max_value=100, value=5,
+            help="Set the minimum risk score to display on the map."
         )
-        filtered = filter_hazard_data(df, risk_col, threshold)
-        if filtered.empty:
-            st.info(f"No counties meet the risk threshold for {metric_name_map[risk_col]}.")
-            continue
-        fig.add_trace(go.Scattergeo(
+
+        st.markdown("### Search for a County")
+        county_search = st.text_input(
+            "Enter County Name",
+            help="Type a county name to highlight it on the map."
+        )
+
+        top_n = st.slider(
+            "Number of Counties to Show",
+            min_value=5, max_value=50, value=10,
+            help="Number of top counties to display in the table below."
+        )
+    else:
+        st.markdown("### Health & Income Filters")
+        st.markdown("Focus on a State")
+        state = st.selectbox("Focus on a State", ["All"] + all_states, label_visibility="collapsed")
+
+        health_metrics = ["Asthma_Rate____", "Diabetes_Rate____", "Heart_Disease_Rate____", "Life_expectancy__years_"]
+        health_metric = st.selectbox(
+            "Health Metric",
+            health_metrics,
+            format_func=lambda m: metric_name_map[m]
+        )
+
+        top_n = st.slider(
+            "Number of Counties to Show",
+            min_value=5, max_value=50, value=10,
+            help="Number of top counties to display in the table below."
+        )
+        threshold = 0
+        county_search = ""
+
+# =====================
+# MAIN CONTENT
+# =====================
+
+# --- Title + Welcome ---
+st.markdown("# GEV Climate Risk Dashboard")
+st.markdown(
+    "Welcome to the GEV Climate Risk Dashboard, a part of the Ten State Project focused on identifying and addressing "
+    "climate vulnerability across the United States. This dashboard is a tool for understanding not just where climate "
+    "extremes are expected to occur, but where they will likely have the greatest social and economic impact. Vulnerable "
+    "communities, especially those with lower incomes and higher health burdens, face steeper challenges in recovery "
+    "and resilience. Our goal is to surface those areas clearly and responsibly."
+)
+st.markdown(
+    "Use the options on the left to explore the data by risk type. Each section includes maps, data tables, and summaries "
+    "designed to support decision-making and public awareness."
+)
+
+# =====================
+# HAZARD VIEWS
+# =====================
+if view in view_config:
+    cfg = view_config[view]
+    risk_col = cfg["risk_col"]
+    risk_label = cfg["risk_label"]
+    df = hazard_dfs[risk_col]
+
+    # "Why ___ Matters" section
+    st.markdown(f"## {cfg['why_title']}")
+    st.markdown(cfg["why_text"])
+
+    # Explorer heading
+    st.markdown(f"# {cfg['emoji']} {cfg['title']}")
+    st.markdown(cfg["subtitle"])
+
+    # Active filter summary
+    st.markdown(f"- **State:** `{state}`")
+    st.markdown(f"- **{risk_label} ≥:** `{threshold}`")
+
+    # Filter data
+    df_filtered = filter_by_state(df, state)
+    filtered = filter_hazard_data(df_filtered, risk_col, threshold)
+
+    # --- Map ---
+    st.markdown(f"**{cfg['map_title']}**")
+
+    if filtered.empty:
+        st.warning(f"No counties meet the risk threshold of {threshold} for {view}.")
+    else:
+        fig = go.Figure(go.Scattergeo(
             lon=filtered["Lon"],
             lat=filtered["Lat"],
-            text=(
-                filtered["County"] + ", " + filtered["State"]
-                + "<br>" + metric_name_map[risk_col] + ": " + filtered[risk_col].astype(str)
-            ),
+            text=filtered["County"] + ", " + filtered["State"] + "<br>" + risk_label + ": " + filtered[risk_col].round(1).astype(str),
             marker=dict(
                 size=filtered["MEAN_low_income_percentage"].clip(0, 100) * 0.15 + 5,
-                color=colors[h],
-                showscale=False,
+                color=filtered[risk_col],
+                colorscale=cfg["colorscale"],
+                showscale=True,
+                colorbar=dict(title=risk_label),
                 sizemode="diameter",
                 sizemin=5
             ),
-            name=metric_name_map[risk_col]
+            name=risk_label
         ))
-    fig.update_layout(
-        geo=dict(scope="usa", projection_scale=1, center={"lat": 37.1, "lon": -95.7}),
-        height=600,
-        margin=dict(r=0, l=0, t=30, b=0),
-        template="plotly_white",
-        font=dict(family="Arial", size=12)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Top 10 charts
-    st.subheader(f"Top 10 Counties by Risk ({state if state != 'All' else 'All States'})")
-    for h in hazards:
-        risk_col = hazard_raw_map[h]
-        df = (
-            wind_filtered if h == "Wind Risk"
-            else drought_filtered if h == "Drought Risk"
-            else wildfire_filtered
-        )
-        filtered = filter_hazard_data(df, risk_col, threshold)
-        if filtered.empty:
-            st.warning(f"No data to display for {metric_name_map[risk_col]}.")
-            continue
-
-        top_10 = filtered.sort_values(by=risk_col, ascending=False).head(10).copy()
-        top_10[risk_col] = pd.to_numeric(top_10[risk_col], errors="coerce")
-        top_10["MEAN_low_income_percentage"] = pd.to_numeric(top_10["MEAN_low_income_percentage"], errors="coerce")
-        top_10_clean = top_10.dropna(subset=[risk_col, "MEAN_low_income_percentage"])
-
-        if top_10_clean.empty:
-            st.warning(f"No valid data to plot for {metric_name_map[risk_col]} after cleaning.")
-            continue
-
-        hist_fig = px.histogram(
-            top_10_clean, x=risk_col, nbins=10,
-            title=f"Distribution of {metric_name_map[risk_col]} for Top 10 Counties",
-            color_discrete_sequence=[colors[h]],
-            template="plotly_white"
-        )
-        hist_fig.update_layout(
-            xaxis_title=metric_name_map[risk_col],
-            yaxis_title="Number of Counties",
+        fig.update_layout(
+            geo=dict(scope="usa", projection_scale=1, center={"lat": 37.1, "lon": -95.7}),
+            height=600,
+            margin=dict(r=0, l=0, t=30, b=0),
+            template="plotly_white",
             font=dict(family="Arial", size=12)
         )
-        st.plotly_chart(hist_fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-        bar_fig = go.Figure()
-        bar_fig.add_trace(go.Bar(
-            x=top_10_clean["County"], y=top_10_clean[risk_col],
-            name=metric_name_map[risk_col], marker_color=colors[h]
-        ))
-        bar_fig.add_trace(go.Bar(
-            x=top_10_clean["County"], y=top_10_clean["MEAN_low_income_percentage"],
-            name=metric_name_map["MEAN_low_income_percentage"], marker_color="#C0C0C0"
-        ))
-        bar_fig.update_layout(
-            title=f"Top 10 Counties: {metric_name_map[risk_col]} vs {metric_name_map['MEAN_low_income_percentage']}",
-            barmode="group", xaxis_title="County", yaxis_title="Value",
-            template="plotly_white", font=dict(family="Arial", size=12),
-            xaxis_tickangle=-45
+        st.markdown(cfg["note"])
+
+        # --- Scatter: Risk vs Low-Income % ---
+        st.markdown(f"## {risk_label} vs. Low-Income %")
+
+        scatter_fig = px.scatter(
+            filtered,
+            x="MEAN_low_income_percentage",
+            y=risk_col,
+            color="State",
+            labels={
+                "MEAN_low_income_percentage": "Low-Income %",
+                risk_col: risk_label,
+            },
+            template="plotly_white"
         )
-        st.plotly_chart(bar_fig, use_container_width=True)
+        scatter_fig.update_layout(font=dict(family="Arial", size=12))
+        st.plotly_chart(scatter_fig, use_container_width=True)
 
-# =====================================================
-# COMMUNITY INDICATORS VIEW
-# =====================================================
-elif view == "Community Indicators":
-    community_metrics = [
-        "Identified as disadvantaged", "Energy burden", "PM2.5 in the air",
-        "Current asthma among adults aged greater than or equal to 18 years",
-        "Share of properties at risk of fire in 30 years", "Total population"
-    ]
-    raw_metric = st.selectbox(
-        "Select Metric",
-        community_metrics,
-        format_func=lambda m: metric_name_map[m],
-        index=1
-    )
-    top_n = st.slider("Top N Counties", 5, 50, 10, 5)
-
-    census_filtered = filter_by_state(census_df, state)
-    st.subheader(f"Community Disadvantage & Demographics ({state if state != 'All' else 'All States'})")
-    st.caption(
-        "Note: Explore metrics like energy burden or air quality. Higher values indicate "
-        "greater vulnerability. Adjust 'Top N' to see more counties."
-    )
-
-    subset = census_filtered[census_filtered[raw_metric].notna()]
-    if raw_metric == "Identified as disadvantaged":
-        subset = subset.copy()
-        subset[raw_metric] = subset[raw_metric].astype(str).str.lower() == "true"
-        subset = subset[subset[raw_metric] == True]
-    top = subset.sort_values(by=raw_metric, ascending=False).head(top_n)
-
-    if top.empty:
-        st.warning(f"No data available for {metric_name_map[raw_metric]}.")
-    else:
-        if raw_metric != "Identified as disadvantaged":
-            top = top.copy()
-            top[raw_metric] = pd.to_numeric(top[raw_metric], errors="coerce")
-            top = top.dropna(subset=[raw_metric])
-
-        display_cols = ["County", "State", raw_metric]
-        if "Total population" in top.columns:
-            display_cols.append("Total population")
-        display_df = top[display_cols].copy()
-        display_df.columns = [metric_name_map.get(c, c) for c in display_df.columns]
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-        if raw_metric != "Identified as disadvantaged":
-            bar_fig = px.bar(
-                top, x="County", y=raw_metric, color="State",
-                title=f"{metric_name_map[raw_metric]} by County in {state if state != 'All' else 'All States'}",
-                color_discrete_sequence=["#2D584A"],
-                template="plotly_white"
+        # Correlation insight
+        valid = filtered[[risk_col, "MEAN_low_income_percentage"]].dropna()
+        if len(valid) > 2:
+            corr = valid[risk_col].corr(valid["MEAN_low_income_percentage"])
+            direction = "higher low-income areas may face higher risk" if corr > 0 else "a weak relationship"
+            st.markdown(
+                f"**Insight:** The correlation between low-income percentage and {risk_label.lower()} is {corr:.2f}, "
+                f"suggesting {direction}. A positive value means higher low-income areas may face higher risk."
             )
-            bar_fig.update_layout(xaxis_tickangle=-45, font=dict(family="Arial", size=12))
-            bar_fig.update_yaxes(title_text=metric_name_map[raw_metric])
-            st.plotly_chart(bar_fig, use_container_width=True)
 
-# =====================================================
-# HEALTH & INCOME VIEW
-# =====================================================
+        # --- Top N Table ---
+        st.markdown(f"## Top {top_n} Counties by {risk_label}")
+
+        top_counties = filtered.sort_values(by=risk_col, ascending=False).head(top_n).copy()
+
+        # County search highlight
+        if county_search:
+            match = filtered[filtered["County"].str.contains(county_search, case=False, na=False)]
+            if not match.empty:
+                top_counties = pd.concat([match, top_counties]).drop_duplicates().head(top_n)
+            else:
+                st.warning(f"No county matching '{county_search}' found with current filters.")
+
+        display_df = top_counties[["County", "State", risk_col, "MEAN_low_income_percentage"]].copy()
+        display_df.columns = ["County", "State", risk_label, "Low-Income %"]
+        st.dataframe(display_df, use_container_width=True)
+
+        # Download button
+        csv = display_df.to_csv(index=False)
+        st.download_button(
+            label="Download Counties Data",
+            data=csv,
+            file_name=f"top_{top_n}_{risk_col.lower()}_counties.csv",
+            mime="text/csv"
+        )
+
+# =====================
+# HEALTH & INCOME
+# =====================
 elif view == "Health & Income":
-    health_metrics = [
-        "Asthma_Rate____", "Diabetes_Rate____",
-        "Heart_Disease_Rate____", "Life_expectancy__years_"
-    ]
-    raw_metric = st.selectbox(
-        "Select Health Metric",
-        health_metrics,
-        format_func=lambda m: metric_name_map[m]
+    st.markdown("## Why Health & Income Matters")
+    st.markdown(
+        "Understanding the link between **economic hardship** and **health outcomes** is critical for building healthier, "
+        "more resilient communities. Explore how low-income populations face compounded health challenges across U.S. counties."
     )
 
-    health_filtered = filter_by_state(health_df, state)
+    st.markdown("# 🏥 Health & Income Explorer")
+    st.markdown("Visualize the intersection of **health metrics** and **economic vulnerability** across U.S. counties.")
 
-    if health_filtered.empty:
+    st.markdown(f"- **State:** `{state}`")
+    st.markdown(f"- **Metric:** `{metric_name_map[health_metric]}`")
+
+    health_df_filtered = filter_by_state(health_df, state)
+
+    if health_df_filtered.empty:
         st.warning(f"No health data available for {state if state != 'All' else 'the selected states'}.")
     else:
+        # Income histogram
         hist = px.histogram(
-            health_filtered, x="MEAN_low_income_percentage", nbins=30,
+            health_df_filtered,
+            x="MEAN_low_income_percentage",
+            nbins=30,
             title=f"Low-Income Distribution Across Counties in {state if state != 'All' else 'All States'}",
             color_discrete_sequence=["#C0C0C0"],
             template="plotly_white"
         )
         hist.update_layout(font=dict(family="Arial", size=12))
-        hist.update_xaxes(title_text=metric_name_map["MEAN_low_income_percentage"])
+        hist.update_xaxes(title_text="Low-Income %")
         st.plotly_chart(hist, use_container_width=True)
 
-        health_filtered = health_filtered.copy()
-        health_filtered[raw_metric] = pd.to_numeric(health_filtered[raw_metric], errors="coerce")
-        top = health_filtered.sort_values(by=raw_metric, ascending=False).head(10)
-        top = top.dropna(subset=[raw_metric])
+        # Scatter: Health metric vs Low-Income %
+        health_df_filtered = health_df_filtered.copy()
+        health_df_filtered[health_metric] = pd.to_numeric(health_df_filtered[health_metric], errors='coerce')
+        health_valid = health_df_filtered.dropna(subset=[health_metric])
 
-        st.subheader(f"Top 10 Counties by {metric_name_map[raw_metric]} in {state if state != 'All' else 'All States'}")
+        st.markdown(f"## {metric_name_map[health_metric]} vs. Low-Income %")
+
+        scatter_fig = px.scatter(
+            health_valid,
+            x="MEAN_low_income_percentage",
+            y=health_metric,
+            color="State",
+            labels={
+                "MEAN_low_income_percentage": "Low-Income %",
+                health_metric: metric_name_map[health_metric],
+            },
+            template="plotly_white"
+        )
+        scatter_fig.update_layout(font=dict(family="Arial", size=12))
+        st.plotly_chart(scatter_fig, use_container_width=True)
+
+        # Correlation insight
+        valid = health_valid[[health_metric, "MEAN_low_income_percentage"]].dropna()
+        if len(valid) > 2:
+            corr = valid[health_metric].corr(valid["MEAN_low_income_percentage"])
+            direction = "higher low-income areas may face worse outcomes" if corr > 0 else "a weak relationship"
+            st.markdown(
+                f"**Insight:** The correlation between low-income percentage and {metric_name_map[health_metric].lower()} is {corr:.2f}, "
+                f"suggesting {direction}. A positive value means higher low-income areas may face worse health outcomes."
+            )
+
+        # Top N table
+        top = health_valid.sort_values(by=health_metric, ascending=False).head(top_n)
+
+        st.markdown(f"## Top {top_n} Counties by {metric_name_map[health_metric]}")
 
         if top.empty:
-            st.warning(f"No data available for {metric_name_map[raw_metric]}.")
+            st.warning(f"No data available for {metric_name_map[health_metric]}.")
         else:
-            bar = px.bar(
-                top, x="County", y=raw_metric, color="State",
-                title=f"Top 10 Counties for {metric_name_map[raw_metric]} in {state if state != 'All' else 'All States'}",
-                hover_data=["MEAN_low_income_percentage"],
-                color_discrete_sequence=["#2D584A"],
-                template="plotly_white"
-            )
-            bar.update_layout(font=dict(family="Arial", size=12))
-            bar.update_yaxes(title_text=metric_name_map[raw_metric])
-            bar.update_traces(
-                hovertemplate=(
-                    "County: %{x}<br>"
-                    + metric_name_map[raw_metric] + ": %{y}<br>"
-                    + metric_name_map["MEAN_low_income_percentage"] + ": %{customdata}"
-                )
-            )
-            st.plotly_chart(bar, use_container_width=True)
+            display_df = top[["County", "State", health_metric, "MEAN_low_income_percentage"]].copy()
+            display_df.columns = ["County", "State", metric_name_map[health_metric], "Low-Income %"]
+            st.dataframe(display_df, use_container_width=True)
 
-            display_df = top[["County", "State", raw_metric, "MEAN_low_income_percentage"]].copy()
-            display_df.columns = [
-                "County", "State",
-                metric_name_map[raw_metric],
-                metric_name_map["MEAN_low_income_percentage"]
-            ]
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-# =====================================================
-# KEY FINDINGS (always shown)
-# =====================================================
-st.divider()
-st.subheader("Key Findings")
-st.markdown(f"**Health and Income Disparities:** {asthma_finding}")
-st.markdown(f"**Wildfire Risk Patterns:** {wildfire_finding}")
+            csv = display_df.to_csv(index=False)
+            st.download_button(
+                label="Download Counties Data",
+                data=csv,
+                file_name=f"top_{top_n}_{health_metric.lower()}_counties.csv",
+                mime="text/csv"
+            )
